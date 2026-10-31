@@ -37,6 +37,7 @@ brew install taguirrer/tap/flatroom
 The formula builds Flatroom from source. Then link the app into your Applications folder:
 
 ```bash
+mkdir -p ~/Applications
 ln -sf "$(brew --prefix flatroom)/Flatroom.app" ~/Applications/
 ```
 
