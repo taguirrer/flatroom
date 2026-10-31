@@ -56,7 +56,11 @@ macOS asks for two permissions:
 - **System Audio Recording**, the first time correction starts. Flatroom needs it to read the audio it corrects.
 - **Accessibility**, which is optional: it is only needed for the volume keys.
 
-Builds that aren't signed with a stable certificate are treated as a new app after each update, so macOS asks again. To avoid this, create a self-signed code-signing certificate named `Flatroom Dev`. In Keychain Access, use *Certificate Assistant → Create a Certificate…* with Type *Code Signing*. `scripts/sign.sh` uses it automatically.
+Builds that aren't signed with a stable certificate are treated as a new app after each update, so macOS asks again. To avoid this, create a self-signed code-signing certificate named `Flatroom Dev`. In Keychain Access, use *Certificate Assistant → Create a Certificate…* with Type *Code Signing*. `scripts/sign.sh` uses it automatically. Homebrew builds can't reach your keychain, so after each `brew install` or `brew upgrade`, sign with it yourself:
+
+```bash
+codesign --force --sign "Flatroom Dev" "$(brew --prefix flatroom)/Flatroom.app"
+```
 
 ## Make a filter
 
