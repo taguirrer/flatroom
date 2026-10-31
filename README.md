@@ -66,7 +66,7 @@ Filters live in `~/Library/Application Support/Flatroom/Filters/<name>/`. Assign
 
 Step by step in **[Measuring your room with REW](docs/measuring.md)**. In short:
 
-1. Quit Flatroom, then measure each speaker at your listening position with REW, ideally at several positions around your head.
+1. Tick REW in **Uncorrected apps**, then measure each speaker at your listening position, ideally at several positions around your head.
 2. Export each measurement with *File → Export → Measurement as text*.
 3. Design the filter:
 

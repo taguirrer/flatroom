@@ -96,6 +96,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let names = controller.callApps.map(appName).joined(separator: ", ")
             menu.addItem(disabledItem("In a call: \(names) plays directly, no correction or latency"))
         }
+        if controller.isRunning {
+            for id in audioProcessBundleIDs() where CorrectionController.isMeasurementApp(id) {
+                menu.addItem(disabledItem(controller.excludedApps.contains(id)
+                    ? "\(appName(id)) plays directly: ready to measure the room"
+                    : "\(appName(id)) plays corrected: to measure the room, add it to Uncorrected apps"))
+            }
+        }
         if let peak = controller.peakSinceLastCheck(), peak > 0 {
             let db = 20 * log10(peak)
             menu.addItem(disabledItem(String(format: "Output peak: %.1f dBFS%@", db, db > -0.1 ? "  ⚠︎ clipping" : "")))

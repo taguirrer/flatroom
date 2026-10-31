@@ -6,8 +6,8 @@ You need a measurement microphone with its calibration file, such as a UMIK-1, o
 
 ## 1. Before you start
 
-- **Quit Flatroom.** It corrects everything that plays, REW's test sweep included. It also has a pitfall: REW records and plays at the same time, so Flatroom takes it for a call and switches it to uncorrected about 2 seconds in, halfway through the sweep. If you'd rather keep Flatroom open, add REW to **Apps that play directly** before measuring.
-- **Turn the volume down.** With Flatroom closed, macOS volume and your interface's knob set the level. Some interfaces have no software volume, so the sweep plays at whatever level the knob is at.
+- **Let REW play uncorrected.** Flatroom corrects everything that plays, REW's test sweep included. Once REW has opened your interface, tick it in Flatroom's **Uncorrected apps** menu; the menu then says *REW plays directly: ready to measure the room*. Flatroom recognises REW, so it never mistakes a measurement for a call. Quitting Flatroom works too.
+- **Turn the volume down.** Uncorrected apps skip Flatroom's volume, so your interface's knob sets the sweep's level. Some interfaces have no software volume at all.
 - Keep the room as you use it: furniture, curtains and doors as usual, with the speakers and your seat where they normally are.
 
 ## 2. Set up REW
@@ -60,9 +60,8 @@ uv run python design_fir.py --left measurements/L-*.txt --right measurements/R-*
 
 ## 6. Check the result
 
-1. Open Flatroom and pick the new filter in **Output profiles**.
-2. Turn off **Calls without correction (automatic)** and remove REW from **Apps that play directly**, so REW plays through the correction.
+1. Pick the new filter in Flatroom's **Output profiles**.
+2. Untick REW in **Uncorrected apps**, so it plays through the correction. The menu says *REW plays corrected*.
 3. Measure again at the main position. The response should follow the predicted curve from `response.png`. With a linear-phase filter, REW reports a delay of about 350 ms. That delay is the filter's latency, and it's expected.
-4. Turn **Calls without correction** back on.
 
 Start with the volume low whenever you load a new filter.
