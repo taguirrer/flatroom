@@ -5,12 +5,16 @@ Input, either:
                               as exported by REW (File > Export > Measurement as text) or any
                               "frequency dB" text/CSV. The correction is its inverse, normalised so
                               200 Hz-2 kHz sits at 0 dB.
+  --left L1 L2… --right R1 R2…
+                              the same, with several measurements per speaker (positions around the
+                              listening seat), power-averaged like REW's RMS average.
   --correction L.csv R.csv    a ready-made correction curve per speaker (same formats), in dB.
 Output: <out>/<name>/fir_<sr>.wav (float32, 2 channels: L, R) for every sample rate, meta.json and
         response.png. <out> defaults to Flatroom's filter folder, so the filter shows up in the app.
 
 Usage:
   uv run python design_fir.py --measurement left.txt right.txt --name my-room
+  uv run python design_fir.py --left L-*.txt --right R-*.txt --name my-room
   uv run python design_fir.py --measurement left.txt right.txt --phase linear --max-cut 9 \\
       --bass-db 3 --hf-from 500 --hf-amount 0.5 --boost-min-hz 30 --name my-room-linear
 """
@@ -55,6 +59,12 @@ def read_curve(path):
 def interp_log(freqs, curve_f, curve_db):
     """Interpolates in log-f; outside the measured range holds the edge value."""
     return np.interp(np.log10(np.clip(freqs, curve_f[0], curve_f[-1])), np.log10(curve_f), curve_db)
+
+
+def average_measurements(paths):
+    """Power (RMS) average of several measurements of one speaker, in dB over LOG_GRID."""
+    power = [10 ** (interp_log(LOG_GRID, *read_curve(p)) / 10) for p in paths]
+    return 10 * np.log10(np.mean(power, axis=0))
 
 
 def octave_smooth(db, fraction):
@@ -114,6 +124,8 @@ def main():
     ap = argparse.ArgumentParser()
     source = ap.add_mutually_exclusive_group(required=True)
     source.add_argument("--measurement", nargs=2, metavar=("LEFT", "RIGHT"), help="measured response per speaker")
+    source.add_argument("--left", nargs="+", metavar="FILE", help="left speaker measurements, averaged (with --right)")
+    ap.add_argument("--right", nargs="+", metavar="FILE", help="right speaker measurements, averaged (with --left)")
     source.add_argument("--correction", nargs=2, metavar=("LEFT", "RIGHT"), help="correction curve per speaker")
     ap.add_argument("--smoothing", type=float, default=6.0, help="measurement smoothing, 1/N octave")
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT, help="folder for the filter")
@@ -129,19 +141,24 @@ def main():
     ap.add_argument("--boost-max-hz", type=float, default=20000.0, help="no boost above")
     ap.add_argument("--name", required=True, help="filter name shown in Flatroom")
     args = ap.parse_args()
+    if bool(args.left) != bool(args.right):
+        ap.error("--left and --right go together")
+    if args.measurement:
+        args.left, args.right = [args.measurement[0]], [args.measurement[1]]
+    sources = [args.left, args.right] if args.left else [[p] for p in args.correction]
 
     out_dir = args.out / args.name
     out_dir.mkdir(parents=True, exist_ok=True)
     check_f = np.geomspace(15, 22000, 600)
     measured, corrections = {}, {}
-    for name, path in zip("LR", args.measurement or args.correction):
-        curve_f, curve_db = read_curve(path)
-        if args.measurement:
-            level = interp_log(LOG_GRID, curve_f, curve_db)
-            level = octave_smooth(level, args.smoothing)
+    for name, paths in zip("LR", sources):
+        if args.left:
+            level = octave_smooth(average_measurements(paths), args.smoothing)
             band = (LOG_GRID >= 200) & (LOG_GRID <= 2000)
             level -= level[band].mean()
             curve_f, curve_db = LOG_GRID, -level
+        else:
+            curve_f, curve_db = read_curve(paths[0])
         corrections[name] = correction_curve(curve_f, curve_db, args)
         measured[name] = on_grid(check_f, -interp_log(LOG_GRID, curve_f, curve_db))
     audible = (LOG_GRID >= 20) & (LOG_GRID <= 20000)
@@ -161,7 +178,7 @@ def main():
             "hf_from_hz": args.hf_from, "hf_amount": args.hf_amount,
             "boost_band_hz": [args.boost_min_hz, args.boost_max_hz],
             "gain_db": round(gain_db, 2), "bypass_gain_db": round(float(bypass_db), 2),
-            "source": " + ".join(Path(p).name for p in (args.measurement or args.correction)), "files": {}}
+            "source": " + ".join(Path(p).name for paths in sources for p in paths), "files": {}}
     report = []
 
     for sr in SAMPLE_RATES:

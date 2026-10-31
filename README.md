@@ -64,14 +64,18 @@ Filters live in `~/Library/Application Support/Flatroom/Filters/<name>/`. Assign
 
 ### Option A: from a REW measurement (recommended)
 
-1. Measure each speaker at your listening position with REW.
+Step by step in **[Measuring your room with REW](docs/measuring.md)**. In short:
+
+1. Quit Flatroom, then measure each speaker at your listening position with REW, ideally at several positions around your head.
 2. Export each measurement with *File → Export → Measurement as text*.
 3. Design the filter:
 
 ```bash
 cd filter-design
-uv run python design_fir.py --measurement left.txt right.txt --name my-room
+uv run python design_fir.py --left L-*.txt --right R-*.txt --name my-room
 ```
+
+The script averages several positions per speaker. With one position, use `--measurement left.txt right.txt`.
 
 The filter appears in Flatroom right away, with a `response.png` showing the measured and predicted responses. Useful options:
 
