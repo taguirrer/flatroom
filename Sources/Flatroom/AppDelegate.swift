@@ -38,6 +38,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         musicRate.start()
     }
 
+    // Opening Flatroom through a symlink (the Homebrew install in ~/Applications) can hand the
+    // link itself to the app as a document. Flatroom opens no documents, so ignore it; without
+    // this AppKit shows "cannot open files in the symbolic link format".
+    func application(_ application: NSApplication, open urls: [URL]) {
+        Log.write("ignored open request: \(urls.map(\.path))")
+    }
+
     // MARK: Volume
 
     private func handle(_ key: VolumeKeys.Key, fine: Bool) {
