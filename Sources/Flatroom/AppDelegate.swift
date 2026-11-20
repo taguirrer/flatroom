@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let volumeKeys = VolumeKeys()
     private let hud = VolumeHUD()
     private let musicRate = MusicSampleRate()
+    private var monitor: FilterMonitor?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let filters = FileManager.default.homeDirectoryForCurrentUser
@@ -124,6 +125,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let bypass = item("Compare without correction (bypass)", #selector(toggleBypass), state: controller.bypass)
         bypass.isEnabled = controller.enabled
         menu.addItem(bypass)
+        menu.addItem(item("Show Filter in Action…", #selector(showMonitor)))
 
         menu.addItem(profilesItem())
         menu.addItem(excludedAppsItem())
@@ -209,6 +211,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func toggleBypass() {
         controller.bypass.toggle()
         refreshIcon()
+    }
+
+    @objc private func showMonitor() {
+        if monitor == nil {
+            monitor = FilterMonitor(controller: controller) { [weak self] in self?.statusText() ?? "" }
+        }
+        monitor?.show()
     }
 
     /// One entry per output device: which filter it uses ("No correction" or one of the filters).
