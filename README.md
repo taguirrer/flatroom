@@ -10,6 +10,7 @@ It is a lightweight alternative to commercial speaker-calibration suites such as
 - **Real FIR convolution.** It uses uniformly partitioned convolution (Accelerate/vDSP) with filters of any length, at 44.1 to 192 kHz with a filter per sample rate. Linear phase keeps phase intact; minimum phase gives low latency.
 - **A profile per output.** Your interface gets its room filter while your headphones or laptop speakers stay untouched. If the system output has no profile, apps that play directly to a profiled interface are still corrected.
 - **Loudness-matched bypass** for honest A/B comparisons.
+- **See the filter at work.** *Show Filter in Action…* draws the spectrum before and after the filter as it plays, and the correction actually applied to your audio next to the filter's design response.
 - **Volume keys and a native-looking HUD.** Volume is applied after the correction, in software, so the filter's headroom is kept.
 - **Apps that play directly.** Choose apps such as DAWs (GarageBand is the default) that skip the correction and its latency.
 - **Calls stay in sync.** Any app that records and plays at the same time (Teams, Zoom, Meet, WhatsApp, FaceTime) plays uncorrected while the call lasts, so lip sync and echo cancellation keep working.

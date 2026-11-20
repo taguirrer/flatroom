@@ -76,6 +76,37 @@ let bypassOK = abs(bypassOut[expectedAt] - expectedGain) < 1e-6
     && bypassOut.enumerated().allSatisfy { $0.offset == expectedAt || $0.element == 0 }
 print("bypass: delay \(firs.latencyFrames)+\(bypassEngine.latencyFrames) frames, gain \(firs.bypassGainDB) dB -> \(bypassOK ? "ok" : "WRONG")")
 
+// Live analyzer: with noise going through, output over input must match the filter's response.
+let probed = ConvolutionEngine(firs: firs, channelCount: channels)
+probed.probe.isEnabled = true
+let analyzer = SpectrumAnalyzer(sampleRate: rate)
+let hop = Int(rate / 30)
+var noise = [Float](repeating: 0, count: hop * channels)
+var noiseOut = noise
+for _ in 0..<(30 * 8 + firs.latencyFrames / hop) {  // ~8 s of display updates after the filter delay
+    for i in noise.indices { noise[i] = Float.random(in: -0.5...0.5, using: &rng) }
+    probed.process(noise, &noiseOut, frames: hop)
+    analyzer.update(from: probed.probe)
+}
+let expected = (0..<min(2, channels)).map {
+    SpectrumAnalyzer.magnitudeResponse(firs.channels[$0], sampleRate: rate, at: analyzer.frequencies)
+}
+// Below 150 Hz the 0.7 s analysis window can't fully resolve the narrow notches on room modes.
+var analyzerWorst: Float = 0, analyzerWorstLow: Float = 0
+for (i, f) in analyzer.frequencies.enumerated() where f >= 40 && f <= 16000 {
+    // Noise power adds per channel, so compare with the mean power of the channel responses.
+    let target = 10 * log10(expected.map { powf(10, $0[i] / 10) }.reduce(0, +) / Float(expected.count))
+    guard let got = analyzer.correctionDB[i] else { analyzerWorst = .infinity; continue }
+    if f < 150 {
+        analyzerWorstLow = max(analyzerWorstLow, abs(got - target))
+    } else {
+        analyzerWorst = max(analyzerWorst, abs(got - target))
+    }
+}
+let analyzerOK = analyzerWorst < 1 && analyzerWorstLow < 3
+print(String(format: "analyzer: live correction within %.2f dB of the filter (150 Hz-16 kHz), %.2f dB below -> %@",
+             analyzerWorst, analyzerWorstLow, analyzerOK ? "ok" : "WRONG"))
+
 // CPU: process 10 s in 512-frame buffers and compare with wall-clock budget.
 let buffer = [Float](repeating: 0.1, count: 512 * 4)
 var sink = [Float](repeating: 0, count: 512 * 4)
@@ -85,4 +116,4 @@ let start = DispatchTime.now()
 for _ in 0..<blocks { bench.process(buffer, &sink, frames: 512) }
 let elapsed = Double(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1e9
 print(String(format: "CPU: %.3f s for 10 s of 4-ch audio = %.2f%% of one core", elapsed, elapsed * 10))
-exit(worst / peak < 1e-4 && bypassOK ? 0 : 1)
+exit(worst / peak < 1e-4 && bypassOK && analyzerOK ? 0 : 1)

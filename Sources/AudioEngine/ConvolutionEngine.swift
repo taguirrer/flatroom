@@ -47,6 +47,10 @@ public final class ConvolutionEngine {
     /// Block latency plus the filter's own delay (what the listener actually hears).
     public var totalLatencyFrames: Int { blockSize + delayLength }
 
+    /// The filter this engine runs (for showing its response).
+    public let filter: FIRSet
+    /// Copies of each filtered channel's input and output, time-aligned, for a live analyzer.
+    public let probe: SignalProbe
     private let convolvers: [PartitionedConvolver]
     private let bypassGain: Float
     public let channelCount: Int
@@ -68,6 +72,7 @@ public final class ConvolutionEngine {
     public init(firs: FIRSet, channelCount: Int, blockSize: Int = 512) {
         self.blockSize = blockSize
         self.channelCount = channelCount
+        filter = firs
         convolvers = firs.channels.prefix(channelCount).map { PartitionedConvolver(impulseResponse: $0, blockSize: blockSize) }
         bypassGain = powf(10, firs.bypassGainDB / 20)
         inFifo = .allocate(capacity: channelCount * blockSize)
@@ -75,6 +80,7 @@ public final class ConvolutionEngine {
         inFifo.initialize(repeating: 0, count: channelCount * blockSize)
         outFifo.initialize(repeating: 0, count: channelCount * blockSize)
         bypassFlag.initialize(to: false)
+        probe = SignalProbe(channelCount: min(convolvers.count, 2))
         delayLength = firs.latencyFrames
         delay = .allocate(capacity: max(1, convolvers.count * delayLength))
         delay.initialize(repeating: 0, count: max(1, convolvers.count * delayLength))
@@ -111,6 +117,7 @@ public final class ConvolutionEngine {
 
     private func runBlock() {
         let bypassed = bypassFlag.pointee
+        let probing = probe.isEnabled
         var gain = bypassGain
         for ch in 0..<channelCount {
             let src = inFifo + ch * blockSize
@@ -122,11 +129,14 @@ public final class ConvolutionEngine {
                     exchangeWithDelay(channel: ch, src: src)  // src now holds the delayed input
                 }
                 if bypassed { vDSP_vsmul(src, 1, &gain, dst, 1, vDSP_Length(blockSize)) }
+                // `src` is now the input delayed by the filter's own delay, so it lines up with `dst`.
+                if probing, ch < probe.channelCount { probe.store(channel: ch, pre: src, post: dst, count: blockSize) }
             } else {
                 dst.update(from: src, count: blockSize)
             }
         }
         if delayLength > 0 { delayPosition = (delayPosition + blockSize) % delayLength }
+        if probing { probe.advance(blockSize) }
     }
 
     /// Swaps `blockSize` samples between `src` and the channel's ring at `delayPosition`:
