@@ -86,6 +86,9 @@ final class CorrectionController {
     }
     /// The target device is the system output, so the volume keys are meant for it.
     private(set) var isSystemOutput = false
+    /// The running filter and the engine applying it (for the live view); nil when not correcting.
+    private(set) var activeFilter: String?
+    private(set) var engine: ConvolutionEngine?
 
     static func gain(volume: Float, muted: Bool) -> Float {
         guard !muted, volume > 0 else { return 0 }
@@ -273,6 +276,8 @@ final class CorrectionController {
             tap.engine?.bypass = bypass
             passthrough = tap
             runningConfig = config
+            let engine = tap.engine
+            DispatchQueue.main.async { self.engine = engine; self.activeFilter = filter }
             let latency = tap.engine.map { Double($0.totalLatencyFrames) / device.sampleRate * 1000 } ?? 0
             if tap.engine == nil {
                 Log.write("no filter loaded: running as plain passthrough")
@@ -331,6 +336,7 @@ final class CorrectionController {
         passthrough.stop()
         self.passthrough = nil
         runningConfig = nil
+        DispatchQueue.main.async { self.engine = nil; self.activeFilter = nil }
         Log.write("stopped")
     }
 
